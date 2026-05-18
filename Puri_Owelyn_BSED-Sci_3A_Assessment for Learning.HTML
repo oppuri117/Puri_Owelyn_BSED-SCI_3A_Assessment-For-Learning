@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Learning Assessment Game</title>
+
+<style>
+  body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient(#70c5ce, #ffffff);
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  canvas {
+    border: 3px solid #000;
+    background: #70c5ce;
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    touch-action: manipulation;
+  }
+
+  .overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.6);
+    flex-direction: column;
+    color: white;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+
+  input, button {
+    padding: 10px;
+    font-size: 16px;
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  h2 {
+    max-width: 350px;
+  }
+</style>
+</head>
+
+<body>
+
+<canvas id="game" width="400" height="600"></canvas>
+
+<!-- INSTRUCTIONS -->
+<div class="overlay" id="instructionBox">
+  <h2>Assessment for Learning</h2>
+
+  <p style="max-width: 320px; font-size: 14px;">
+    Owelyn P. Puri<br>
+    BSED - Science 3A
+  </p>
+
+  <h2>Instructions</h2>
+
+  <p style="max-width: 320px; font-size: 14px;">
+    Tap the screen or press SPACE to fly.<br>
+    Avoid obstacles.<br>
+    Write TRUE if the statement shows a positive attitude or behavior during learning and FALSE if it does not.<br><br>
+    Complete all 10 questions to finish the game.
+  </p>
+
+  <button onclick="startGame()">Start Game</button>
+</div>
+
+<!-- QUIZ -->
+<div class="overlay" id="quizBox" style="display:none;">
+  <h2 id="questionText"></h2>
+
+  <input
+    type="text"
+    id="answerInput"
+    placeholder="TRUE or FALSE"
+  />
+
+  <button onclick="submitAnswer()">Submit</button>
+</div>
+
+<!-- RESULT -->
+<div class="overlay" id="resultBox" style="display:none;">
+  <h1>🎉 Congratulations!</h1>
+  <h2 id="finalScore"></h2>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let bird = {
+  x: 100,
+  y: 200,
+  velocity: 0
+};
+
+let gravity = 0.4;
+let lift = -7;
+
+let pipes = [];
+let frame = 0;
+
+let score = 0;
+let paused = true;
+
+const groundY = 560;
+const birdRadius = 15;
+
+// EXACTLY 10 QUESTIONS
+const questions = [
+  {
+    q: "Maria listens carefully while her classmate shares an idea, even if she disagrees.",
+    a: "true"
+  },
+  {
+    q: "John refuses to help in a group activity because he thinks others can do the work.",
+    a: "false"
+  },
+  {
+    q: "Anna asks her teacher questions when she finds the lesson difficult to understand.",
+    a: "true"
+  },
+  {
+    q: "Mark laughs at his classmate after giving a wrong answer during class discussion.",
+    a: "false"
+  },
+  {
+    q: "Lea finishes her assigned task and submits it on time.",
+    a: "true"
+  },
+  {
+    q: "Carlo ignores his classmates’ opinions because he believes only his ideas are correct.",
+    a: "false"
+  },
+  {
+    q: "Mia encourages her groupmates to participate during a classroom activity.",
+    a: "true"
+  },
+  {
+    q: "Ben chooses not to participate in class because the activity has no grade.",
+    a: "false"
+  },
+  {
+    q: "Joy reflects on her mistakes and tries to improve in the next activity.",
+    a: "true"
+  },
+  {
+    q: "Kyle respects classroom rules and listens attentively during discussions.",
+    a: "true"
+  }
+];
+
+// ✅ QUESTIONS WILL NOT REPEAT
+let remainingQuestions = [...questions];
+
+let currentQuestion;
+
+function startGame() {
+  document.getElementById("instructionBox").style.display = "none";
+  paused = false;
+}
+
+function createPipe() {
+  let gap = 150;
+  let top = Math.random() * 250 + 60;
+
+  pipes.push({
+    x: 400,
+    top: top,
+    bottom: top + gap,
+    hit: false
+  });
+}
+
+function drawBird() {
+  ctx.fillStyle = "red";
+
+  ctx.beginPath();
+  ctx.arc(
+    bird.x,
+    bird.y,
+    birdRadius,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+}
+
+function fly() {
+  if (!paused) {
+    bird.velocity = lift;
+  }
+}
+
+// DESKTOP CONTROL
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    fly();
+  }
+});
+
+// MOBILE CONTROL
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  fly();
+});
+
+function drawPipes() {
+
+  // BLACK BARRIERS
+  ctx.fillStyle = "#000000";
+
+  pipes.forEach((p, i) => {
+
+    ctx.fillRect(p.x, 0, 50, p.top);
+    ctx.fillRect(p.x, p.bottom, 50, 600);
+
+    p.x -= 1;
+
+    if (p.x + 50 < 0) {
+      pipes.splice(i, 1);
+    }
+
+    // COLLISION
+    if (
+      !p.hit &&
+      bird.x > p.x &&
+      bird.x < p.x + 50 &&
+      (
+        bird.y < p.top ||
+        bird.y > p.bottom
+      )
+    ) {
+
+      p.hit = true;
+      bird.velocity = 0;
+
+      triggerQuiz();
+    }
+  });
+}
+
+// SHOW QUIZ
+function triggerQuiz() {
+
+  if (paused) return;
+
+  paused = true;
+
+  // ✅ GAME ENDS AFTER 10 QUESTIONS
+  if (remainingQuestions.length === 0) {
+    showResults();
+    return;
+  }
+
+  // RANDOM QUESTION WITHOUT REPEAT
+  let randomIndex =
+    Math.floor(Math.random() * remainingQuestions.length);
+
+  currentQuestion =
+    remainingQuestions[randomIndex];
+
+  // REMOVE USED QUESTION
+  remainingQuestions.splice(randomIndex, 1);
+
+  document.getElementById("questionText").innerText =
+    currentQuestion.q;
+
+  document.getElementById("quizBox").style.display = "flex";
+
+  document.getElementById("answerInput").value = "";
+}
+
+// SUBMIT ANSWER
+function submitAnswer() {
+
+  let answer =
+    document.getElementById("answerInput")
+    .value
+    .toLowerCase()
+    .trim();
+
+  let correct =
+    answer === currentQuestion.a;
+
+  if (correct) {
+    score++;
+  }
+
+  document.getElementById("questionText").innerText =
+    correct
+      ? "✅ Correct!"
+      : "❌ Correct Answer: " +
+        currentQuestion.a.toUpperCase();
+
+  setTimeout(() => {
+
+    document.getElementById("quizBox").style.display = "none";
+
+    // ✅ AFTER ALL 10 QUESTIONS
+    if (remainingQuestions.length === 0) {
+      showResults();
+    } else {
+      resetBird();
+    }
+
+  }, 1500);
+}
+
+// SHOW FINAL SCORE
+function showResults() {
+
+  paused = true;
+
+  document.getElementById("resultBox").style.display = "flex";
+
+  document.getElementById("finalScore").innerText =
+    "Your Score: " + score + " / 10";
+}
+
+function resetBird() {
+
+  bird.y = 200;
+  bird.velocity = 0;
+
+  paused = false;
+}
+
+function update() {
+
+  if (!paused) {
+
+    ctx.clearRect(0, 0, 400, 600);
+
+    // PHYSICS
+    bird.velocity += gravity;
+    bird.y += bird.velocity;
+
+    // GROUND
+    if (bird.y + birdRadius > groundY) {
+      bird.y = groundY - birdRadius;
+      bird.velocity = 0;
+    }
+
+    // CEILING
+    if (bird.y - birdRadius < 0) {
+      bird.y = birdRadius;
+      bird.velocity = 0;
+    }
+
+    // CREATE PIPE
+    if (frame % 180 === 0) {
+      createPipe();
+    }
+
+    drawBird();
+    drawPipes();
+
+    // SCORE DISPLAY
+    ctx.fillStyle = "black";
+    ctx.font = "20px Arial";
+
+    ctx.fillText(
+      "Score: " + score + "/10",
+      10,
+      30
+    );
+
+    frame++;
+  }
+
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+
+</body>
+</html>
